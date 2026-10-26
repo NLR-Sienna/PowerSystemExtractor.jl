@@ -59,10 +59,10 @@ function extract_region_system(
     extra_num_set = Set(extra_bus_numbers)
     extra_name_set = Set(extra_bus_names)
 
-    # Identify all 3W internal star buses in main_sys so Step 1 only selects physical buses
+    # Identify all 3W internal star buses in main_sys so Step 1 only selects physical (non-fictitious) buses
     all_main_star_buses = get_all_star_buses(main_sys)
 
-    # 1. Collect candidate physical buses
+    # Collect candidate physical buses
     physical_buses = collect(
         PSY.get_components(PSY.ACBus, main_sys) do b
             b in all_main_star_buses && return false
@@ -77,11 +77,11 @@ function extract_region_system(
     isempty(physical_buses) && error("No buses found matching area_names=$area_names or extra_buses.")
     physical_bus_set = Set(physical_buses)
 
-    # 2. Classify Internal Branches vs. Cut Tie-Lines & Warn User
+    # Classify Intra-Regional Branches vs. Cut Tie-Lines & Warn User
     region_branches, cut_tielines = classify_regional_branches(main_sys, physical_bus_set)
     _warn_tielines && warn_cut_tielines(cut_tielines, physical_bus_set)
 
-    # 3. Add Internal Star Buses for Retained 3W Transformers
+    # Add Internal Star Buses for Retained 3W Transformers
     star_buses = PSY.ACBus[]
     for br in region_branches
         if br isa PSY.ThreeWindingTransformer
@@ -94,7 +94,7 @@ function extract_region_system(
     all_region_buses = vcat(physical_buses, star_buses)
     all_region_bus_set = Set(all_region_buses)
 
-    # 4. Collect Unique Arcs for 2W and 3W Branches
+    # Collect Unique Arcs for 2W and 3W Branches
     region_arcs = PSY.Arc[]
     for br in region_branches
         for arc in get_branch_arcs(br)
@@ -103,7 +103,7 @@ function extract_region_system(
     end
     unique!(region_arcs)
 
-    # 5. Collect All StaticInjections (Gen, Storage, Load, SynchronousCondenser, Admittances, etc.)
+    # Collect All StaticInjections (Gen, Storage, Load, SynchronousCondenser, Admittances, etc.)
     region_injections = collect(
         PSY.get_components(
             x -> hasproperty(x, :bus) &&
@@ -114,14 +114,14 @@ function extract_region_system(
         )
     )
 
-    # 5b. Collect, Audit, and Filter HydroReservoirs (Logs explicit [HYDRO_TOPOLOGY] warnings)
+    # Collect, Audit, and Filter HydroReservoirs (Logs explicit [HYDRO_TOPOLOGY] warnings)
     region_reservoirs = collect_and_audit_hydro_reservoirs(
         main_sys,
         all_region_bus_set,
         region_injections,
     )
 
-    # 6. Collect Areas, LoadZones & Internal AreaInterchanges
+    # Collect Areas, LoadZones & Internal AreaInterchanges
     region_areas = unique(filter(!isnothing, PSY.get_area.(all_region_buses)))
     region_area_set = Set(region_areas)
     region_loadzones = unique(filter(!isnothing, PSY.get_load_zone.(all_region_buses)))
@@ -134,7 +134,7 @@ function extract_region_system(
         )
     )
 
-    # 7. Clone Components Without Mutating main_sys
+    # Clone Components Without Mutating main_sys
     cloned = clone_regional_components(
         region_areas,
         region_loadzones,
@@ -149,7 +149,7 @@ function extract_region_system(
     cloned_physical_buses = filter(b -> !(PSY.get_number(b) in star_bus_nums), cloned.buses)
     ensure_reference_bus!(cloned_physical_buses)
 
-    # 8. Build Standalone Regional System
+    # Build Standalone Regional System
     region_sys = PSY.System(
         PSY.get_base_power(main_sys);
         runchecks = false,
@@ -168,7 +168,7 @@ function extract_region_system(
     foreach(res -> PSY.add_component!(region_sys, res), cloned.reservoirs)
     foreach(ai -> PSY.add_component!(region_sys, ai), cloned.interchanges)
 
-    # 9. Check Subnetwork Connectivity via PowerNetworkMatrices (PNM.find_subnetworks)
+    # Check Subnetwork Connectivity via PowerNetworkMatrices (PNM.find_subnetworks)
     sub_nws = copy(PNM.find_subnetworks(region_sys))
 
     # Strip 3W dummy star bus numbers so island sizes reflect physical buses
@@ -190,7 +190,7 @@ function extract_region_system(
         sorted_sub_nws = sort(collect(sub_nws), by = kv -> length(kv[2]), rev = true)
         main_ref_num, main_bus_nums = sorted_sub_nws[1]
 
-        # 9a. Optional 1-Hop Bridge Bus Auto-Healing
+        # Optional 1-Hop Bridge Bus Auto-Healing
         if auto_include_1hop_bridges
             bridge_buses = find_pnm_bridge_buses(
                 sorted_sub_nws,
@@ -219,7 +219,7 @@ function extract_region_system(
             end
         end
 
-        # 9b. Log Disconnected Islands & Cross-Referenced Cut Tie-Lines
+        # Log Disconnected Islands & Cross-Referenced Cut Tie-Lines
         island_details = String[]
         for (idx, (rep_num, bus_nums)) in enumerate(sorted_sub_nws[2:end])
             island_tielines = filter(cut_tielines) do br
@@ -237,7 +237,7 @@ function extract_region_system(
               "Main subnetwork (ref bus #$main_ref_num) has $(length(main_bus_nums)) physical buses.\n" *
               "Secondary disconnected subnetworks:\n" * join(island_details, "\n")
 
-        # 9c. Optional Pruning of Disconnected Islands via Clean Rebuild
+        # Optional Pruning of Disconnected Islands via Clean Rebuild
         if keep_only_largest_island
             @warn "[ISLAND] Rebuilding '$system_name' with only the largest connected subnetwork ($(length(main_bus_nums)) physical buses)..."
             return extract_region_system(
@@ -260,7 +260,7 @@ function extract_region_system(
         @info "[ISLAND] PNM.find_subnetworks confirmed '$system_name' is a single connected network ($(length(first(values(sub_nws)))) physical buses)."
     end
 
-    # 10. Migrate Services & Reserves (Attached to surviving devices in region_sys)
+    # Migrate Services & Reserves (Attached to surviving devices in region_sys)
     migrated_services = Pair{PSY.Service, PSY.Service}[]
     if include_services
         migrated_services = migrate_regional_services!(
@@ -272,7 +272,7 @@ function extract_region_system(
         )
     end
 
-    # 11. Copy StaticTimeSeries for Surviving Injections, HydroReservoirs, and Migrated Services
+    # Copy StaticTimeSeries for Surviving Injections, HydroReservoirs, and Migrated Services
     ts_count = 0
     for orig_dev in vcat(region_injections, region_reservoirs)
         dev_type = typeof(orig_dev)
