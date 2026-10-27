@@ -6,10 +6,7 @@
 Returns the Set of all 3W transformer internal star buses in `sys`.
 """
 function get_all_star_buses(sys::PSY.System)
-    star_buses = Set{PSY.ACBus}()
-    for br in PSY.get_components(PSY.ThreeWindingTransformer, sys)
-        push!(star_buses, PSY.get_to(PSY.get_primary_star_arc(br)))
-    end
+    star_buses = Set{PSY.ACBus}(PSY.get_star_bus.(PSY.get_components(PSY.ThreeWindingTransformer, sys)))
     return star_buses
 end
 

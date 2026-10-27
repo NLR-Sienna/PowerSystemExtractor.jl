@@ -15,7 +15,7 @@ function collect_and_audit_hydro_reservoirs(
     retained_inj_set = Set(region_injections)
     retained_inj_names = Set(PSY.get_name.(region_injections))
 
-    # 1. Initial candidate selection: any reservoir with a turbine on a regional bus or in ext["plants"]
+    # Initial candidate selection: any reservoir with a turbine on a regional bus or in ext["plants"]
     candidate_reservoirs = filter(all_main_reservoirs) do res
         for t in vcat(PSY.get_upstream_turbines(res), PSY.get_downstream_turbines(res))
             if (t in retained_inj_set) || (hasproperty(t, :bus) && PSY.get_bus(t) in all_region_bus_set)
@@ -23,6 +23,7 @@ function collect_and_audit_hydro_reservoirs(
             end
         end
         ext = PSY.get_ext(res)
+        # This might not be avialable in future EI.jl System builds
         if haskey(ext, "plants") && (ext["plants"] isa AbstractVector)
             if any(p -> string(p) in retained_inj_names, ext["plants"])
                 return true
@@ -47,7 +48,7 @@ function collect_and_audit_hydro_reservoirs(
         end
     end
 
-    # 3. Audit every candidate reservoir for split turbines or 0 retained turbines (orphans)
+    # Audit every candidate reservoir for split turbines or 0 retained turbines (orphans)
     issues = String[]
     valid_reservoirs = PSY.HydroReservoir[]
 
@@ -104,7 +105,7 @@ function collect_and_audit_hydro_reservoirs(
 
     valid_res_set = Set(valid_reservoirs)
 
-    # 4. Check if any surviving reservoir references an upstream_reservoir that was dropped
+    # Check if any surviving reservoir references an upstream_reservoir that was dropped
     for res in valid_reservoirs
         res_name = PSY.get_name(res)
         up_r = PSY.get_upstream_reservoirs(res)
@@ -118,8 +119,8 @@ function collect_and_audit_hydro_reservoirs(
         end
     end
 
-    # 5. Check if any retained regional HydroUnit was linked to a reservoir in main_sys,
-    #    but is now missing a reservoir (or missing its head/tail partner for pumped hydro)
+    #  Check if any retained regional HydroUnit was linked to a reservoir in main_sys,
+    #  but is now missing a reservoir (or missing its head/tail partner for pumped hydro)
     main_turbine_to_res = Dict{PSY.StaticInjection, Vector{PSY.HydroReservoir}}()
     for res in all_main_reservoirs
         for t in vcat(PSY.get_upstream_turbines(res), PSY.get_downstream_turbines(res))
@@ -128,7 +129,7 @@ function collect_and_audit_hydro_reservoirs(
     end
 
     for inj in region_injections
-        if haskey(main_turbine_to_res, inj)
+        if inj isa PSY.HydroUnit && haskey(main_turbine_to_res, inj)
             orig_res_list = unique(main_turbine_to_res[inj])
             kept_res_list = filter(r -> r in valid_res_set, orig_res_list)
             miss_res_list = filter(r -> !(r in valid_res_set), orig_res_list)

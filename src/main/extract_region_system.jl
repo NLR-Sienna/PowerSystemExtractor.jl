@@ -82,12 +82,7 @@ function extract_region_system(
     _warn_tielines && warn_cut_tielines(cut_tielines, physical_bus_set)
 
     # Add Internal Star Buses for Retained 3W Transformers
-    star_buses = PSY.ACBus[]
-    for br in region_branches
-        if br isa PSY.ThreeWindingTransformer
-            push!(star_buses, PSY.get_to(PSY.get_primary_star_arc(br)))
-        end
-    end
+    star_buses = PSY.get_star_bus.(filter(x -> x isa PSY.ThreeWindingTransformer, region_branches))
     unique!(star_buses)
     star_bus_nums = Set(PSY.get_number.(star_buses))
 
@@ -115,6 +110,7 @@ function extract_region_system(
     )
 
     # Collect, Audit, and Filter HydroReservoirs (Logs explicit [HYDRO_TOPOLOGY] warnings)
+    # Ensuring all Reservoirs "connected" to HydroUnits part of the region are retained, and any orphaned reservoirs are dropped.
     region_reservoirs = collect_and_audit_hydro_reservoirs(
         main_sys,
         all_region_bus_set,

@@ -18,12 +18,13 @@ function clone_regional_components(
 
     orig_refs = IdDict{Any, Any}()
     orig_services = IdDict{PSY.Device, Vector{PSY.Service}}()
-    orig_dyn = IdDict{PSY.StaticInjection, Any}()
+    orig_dyn = IdDict{PSY.StaticInjection, Any}() 
     orig_res_links = IdDict{PSY.HydroReservoir, NamedTuple}()
 
     try
+        # Here we are making sure we remove all references to the main system and services so that deepcopy does not copy them over
         for obj in all_objs
-            # 1. Detach SharedSystemReferences directly on the component (IS 3.x / PSY 5.0 signature)
+            # Detach SharedSystemReferences directly on the component
             orig_refs[obj] = IS.get_shared_system_references(obj)
             IS.set_shared_system_references!(obj, nothing)
 
@@ -63,6 +64,7 @@ function clone_regional_components(
             interchanges = interchanges,
         ))
     finally
+        # We are restoring the original state of the objects to avoid side effects on `main_sys`
         for (obj, ref) in orig_refs
             IS.set_shared_system_references!(obj, ref)
         end
