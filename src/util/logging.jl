@@ -11,7 +11,7 @@ function _with_optional_logfile(f::Function, log_file::Union{Nothing, String})
 
     mkpath(dirname(abspath(log_file)))
     open(log_file, "w") do io
-        console_logger = ConsoleLogger(stderr, Logging.Info)
+        console_logger = Logging.ConsoleLogger(stderr, Logging.Info)
         file_logger = IS.FileLogger(io, Logging.Info)
         multi_logger = IS.MultiLogger([console_logger, file_logger])
 

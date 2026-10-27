@@ -34,6 +34,16 @@ region_sys = extract_region_system(
     system_name = "TVA_Carved_System",
     log_file = "TVA_extraction.log",         # Tees all diagnostics to a log file
 )
+# Run Checks
+PSY.check(region_sys)
+PSY.check_components(region_sys) # You should expect warnings if your main system was run with runchecks = false 
+
+# Transform SingleTimeSeries into Deterministic forecasts (48-hour horizon, 24-hour interval)
+PSY.transform_single_time_series!(region_sys, Dates.Hour(48), Dates.Hour(24))
+
+# Serialize the extracted regional system to disk
+output_path = "your_path.json"
+PSY.to_json(region_sys, output_path; pretty = true, force = true)
 ```
 
 ---
@@ -72,3 +82,8 @@ When `log_file` is specified, all boundary cuts, topological warnings, and hydro
 * **`[BRIDGE_AUTO_HEAL]`**: Logs when 1-hop external bridge buses are automatically pulled in to reconnect split regional corridors.
 * **`[ISLAND]`**: Details secondary disconnected subnetworks and the specific cut tie-lines touching them.
 * **`[HYDRO_TOPOLOGY]`**: Audits `HydroReservoir` and `HydroUnit` memberships, warning on split turbine memberships and automatically dropping orphaned reservoirs with 0 retained turbines.
+
+## Roadmap & TODOs
+
+- [ ] **Forecast Time-Series Migration**: Extend Step 11 time-series migration beyond `PSY.StaticTimeSeries` to support standalone `PSY.Forecast` subtypes (`Deterministic`, `Probabilistic`, `Scenarios`), and automatically re-apply `transform_single_time_series!` when `DeterministicSingleTimeSeries` views are detected on `main_sys`.
+- [ ] **`ConstantReserveGroup` Migration**: Add a second pass in `migrate_regional_services!` to remap `contributing_services` for `PSY.ConstantReserveGroup` meta-services.
