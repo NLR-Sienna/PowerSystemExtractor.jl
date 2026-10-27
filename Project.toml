@@ -1,6 +1,22 @@
+name = "PowerSystemExtractor"
+uuid = "f48b9c72-6a1e-4d39-9b85-3c7f2e10a6d4"
+authors = ["Surya Chandan Dhulipala <suryachandan.dhulipala@nlr.gov>"]
+version = "0.1.0"
+
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 InfrastructureSystems = "2cd47ed4-ca9b-11e9-27f2-ab636a7671f1"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 PowerNetworkMatrices = "bed98974-b02a-5e2f-9fe0-a103f5c450dd"
 PowerSystems = "bcd98974-b02a-5e2f-9ee0-a103f5c450dd"
+
+[compat]
+InfrastructureSystems = "3.6"
+PowerSystems = "5"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

@@ -320,3 +320,66 @@ function extract_region_system(
 
     return region_sys
 end
+
+
+# ==============================================================================
+# Main Regional System Extraction Function (Compatible with PSY 5)
+# ==============================================================================
+
+"""
+    extract_region_system(
+        sys_loc::String;
+        area_names::Vector{String},
+        extra_bus_numbers::Vector{Int} = Int[],
+        extra_bus_names::Vector{String} = String[],
+        keep_only_largest_island::Bool = true,
+        auto_include_1hop_bridges::Bool = true,
+        min_island_size_to_bridge::Int = 2,
+        include_services::Bool = true,
+        fallback_bus_ext_reserves::Bool = false,
+        system_name::String = join(area_names, "_") * "_Carved_System",
+        log_file::Union{Nothing, String} = nothing,
+    ) -> PSY.System
+
+Extracts a standalone regional `PSY.System` from `main_sys` without mutating `main_sys`.
+"""
+function extract_region_system(
+    sys_loc::String;
+    area_names::Vector{String},
+    extra_bus_numbers::Vector{Int} = Int[],
+    extra_bus_names::Vector{String} = String[],
+    keep_only_largest_island::Bool = true,
+    auto_include_1hop_bridges::Bool = true,
+    min_island_size_to_bridge::Int = 2,
+    include_services::Bool = true,
+    fallback_bus_ext_reserves::Bool = false,
+    system_name::String = join(area_names, "_") * "_Carved_System",
+    log_file::Union{Nothing, String} = nothing,
+    _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
+    _warn_tielines::Bool = true,
+)
+    @warn "Loading system from '$sys_loc' for regional extraction with run checks disabled. Ensure this is a valid PSY 5 System file."
+    main_sys = PSY.System(
+        sys_loc;
+        runchecks = false,
+    )
+
+    PSY.set_units_base_system!(main_sys, PSY.UnitSystem.SYSTEM_BASE)
+
+    extract_region_system(
+        main_sys;
+        area_names = area_names,
+        extra_bus_numbers = extra_bus_numbers,
+        extra_bus_names = extra_bus_names,
+        keep_only_largest_island = keep_only_largest_island,
+        auto_include_1hop_bridges = auto_include_1hop_bridges,
+        min_island_size_to_bridge = min_island_size_to_bridge,
+        include_services = include_services,
+        fallback_bus_ext_reserves = fallback_bus_ext_reserves,
+        system_name = system_name,
+        log_file = nothing,
+        _allowed_bus_numbers = _allowed_bus_numbers,
+        _warn_tielines = _warn_tielines,
+    )
+       
+end
