@@ -41,6 +41,8 @@ reloaded_sys = PSY.System(output_path; runchecks = false);
     @test !isnothing(PSY.get_component(PSY.ACBus, region_sys, "Star_A_3W"))
     @test isnothing(PSY.get_component(PSY.ACBus, region_sys, "Bus_A6_Isolated"))
     @test isnothing(PSY.get_component(PSY.ACBus, region_sys, "Bus_B2_External"))
+    @test isnothing(PSY.get_component(PSY.SwitchedAdmittance, region_sys, "Shunt_A6"))
+    @test isnothing(PSY.get_component(PSY.StandardLoad, region_sys, "StdLoad_A6"))
 
     # Verify 3W transformer survived
     @test length(PSY.get_components(PSY.ThreeWindingTransformer, region_sys)) == 1
@@ -71,6 +73,9 @@ reloaded_sys = PSY.System(output_path; runchecks = false);
     @test occursin("[HYDRO_TOPOLOGY]", log_text)
     @test occursin("[SPLIT_DOWNSTREAM_TURBINES]", log_text)
     @test occursin("[DROPPED_ORPHAN_RESERVOIR]", log_text)
+    @test occursin("[PRUNED_ISLAND_SUMMARY]", log_text)
+    @test occursin("Other SwitchedAdmittance 'Shunt_A6' @ bus #106", log_text)
+    @test occursin("Load StandardLoad 'StdLoad_A6' @ bus #106 (avail, max_p = 30.0 MW)", log_text)
 end
 
 

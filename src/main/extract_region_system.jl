@@ -235,7 +235,11 @@ function extract_region_system(
 
         # Optional Pruning of Disconnected Islands via Clean Rebuild
         if keep_only_largest_island
-            @warn "[ISLAND] Rebuilding '$system_name' with only the largest connected subnetwork ($(length(main_bus_nums)) physical buses)..."
+            allowed_bus_set = union(main_bus_nums,[PSY.get_number(b) for b in PSY.get_components(PSY.ACBus, region_sys) if PSY.get_number(b) in extra_bus_numbers])
+            @warn "[ISLAND] Rebuilding '$system_name' with only the largest connected subnetwork ($(length(allowed_bus_set)) physical buses)..."
+            # Audit and log every 1-bus pocket and secondary island (plus its MW gen/load) before pruning
+            log_pruned_islands_audit(region_sys, sorted_sub_nws[2:end])
+
             return extract_region_system(
                 main_sys;
                 area_names = area_names,
@@ -248,7 +252,7 @@ function extract_region_system(
                 fallback_bus_ext_reserves = fallback_bus_ext_reserves,
                 system_name = system_name,
                 log_file = nothing,
-                _allowed_bus_numbers = main_bus_nums,
+                _allowed_bus_numbers = allowed_bus_set,
                 _warn_tielines = false,
             )
         end

@@ -156,7 +156,34 @@ function build_synthetic_two_area_system()
         max_active_power = 1.0,
         max_reactive_power = 0.2,
     )
-    PSY.add_components!(sys, [gen_a1, gen_b1, load_a3])
+    # --- Shunt & Composite Load on Bus_A6_Isolated (Pruned 1-Bus Pocket) ---
+    shunt_a6 = PSY.SwitchedAdmittance(
+        name = "Shunt_A6",
+        available = true,
+        bus = b106,
+        Y = 0.0 + 0.05im,
+        number_of_steps = [1],
+        Y_increase = [0.0 + 0.05im],
+    )
+    std_load_a6 = PSY.StandardLoad(
+        name = "StdLoad_A6",
+        available = true,
+        bus = b106,
+        base_power = 100.0,
+        constant_active_power = 0.15,
+        constant_reactive_power = 0.05,
+        impedance_active_power = 0.05,
+        impedance_reactive_power = 0.01,
+        current_active_power = 0.05,
+        current_reactive_power = 0.01,
+        max_constant_active_power = 0.20,
+        max_constant_reactive_power = 0.05,
+        max_impedance_active_power = 0.05,
+        max_impedance_reactive_power = 0.01,
+        max_current_active_power = 0.05,
+        max_current_reactive_power = 0.01,
+    )
+    PSY.add_components!(sys, [gen_a1, gen_b1, load_a3,shunt_a6, std_load_a6])
 
     # --- HydroTurbines & HydroReservoirs ---
     mk_turbine(name, bus) = PSY.HydroTurbine(
