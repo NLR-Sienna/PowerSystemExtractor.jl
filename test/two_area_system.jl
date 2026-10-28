@@ -4,7 +4,7 @@ import Dates
 import TimeSeries
 
 # ==============================================================================
-# 2. Synthetic 2-Area Test System Builder (3W Tx, 1-Hop Bridge, HydroReservoir)
+# Synthetic 2-Area Test System Builder (3W Tx, 1-Hop Bridge, HydroReservoir)
 # ==============================================================================
 
 function build_synthetic_two_area_system()
@@ -82,7 +82,7 @@ function build_synthetic_two_area_system()
     )
     PSY.add_component!(sys, tx3w)
 
-    # --- 2W Lines ---
+    # --- ACLines ---
     mk_line(name, from_b, to_b) = begin
         arc = PSY.Arc(from_b, to_b)
         PSY.add_component!(sys, arc)
