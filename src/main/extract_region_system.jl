@@ -165,7 +165,41 @@ function extract_region_system(
     foreach(ai -> PSY.add_component!(region_sys, ai), cloned.interchanges)
 
     # Check Subnetwork Connectivity via PowerNetworkMatrices (PNM.find_subnetworks)
-    sub_nws = copy(PNM.find_subnetworks(region_sys))
+    # Because we are using PNM for connectivity checks, we must ensure that the buses 
+    # eliminated for reduction are included in subnetworks to ensure they don't 
+    # get identified as islands in the subsequent pass
+    # Check Subnetwork Connectivity via PowerNetworkMatrices
+    ybus = PNM.Ybus(region_sys)
+    sub_nws = Dict{Int, Set{Int}}(
+        k => Set(v[1]) for (k, v) in ybus.subnetwork_axes
+    )
+
+    # Restore physical buses that PNM merged via zero-impedance / network reduction
+    bus_red_map = PNM.get_bus_reduction_map(ybus.network_reduction_data)
+    for (_, bus_nums) in sub_nws
+        merged_buses = Int[]
+        for b_num in bus_nums
+            if haskey(bus_red_map, b_num)
+                append!(merged_buses, bus_red_map[b_num])
+            end
+        end
+        union!(bus_nums, merged_buses)
+    end
+
+    # Strip 3W dummy star bus numbers so island sizes reflect physical buses
+    for (_, bus_nums) in sub_nws
+        setdiff!(bus_nums, star_bus_nums)
+    end
+    filter!(kv -> !isempty(kv[2]), sub_nws)
+
+    # Ensure any completely isolated physical bus (0 internal branches) is accounted for
+    accounted_bus_nums = isempty(sub_nws) ? Set{Int}() : union(values(sub_nws)...)
+    for b in cloned_physical_buses
+        b_num = PSY.get_number(b)
+        if !(b_num in accounted_bus_nums)
+            sub_nws[b_num] = Set([b_num])
+        end
+    end
 
     # Strip 3W dummy star bus numbers so island sizes reflect physical buses
     for (_, bus_nums) in sub_nws
@@ -235,8 +269,7 @@ function extract_region_system(
 
         # Optional Pruning of Disconnected Islands via Clean Rebuild
         if keep_only_largest_island
-            allowed_bus_set = union(main_bus_nums,[PSY.get_number(b) for b in PSY.get_components(PSY.ACBus, region_sys) if PSY.get_number(b) in extra_bus_numbers])
-            @warn "[ISLAND] Rebuilding '$system_name' with only the largest connected subnetwork ($(length(allowed_bus_set)) physical buses)..."
+            @warn "[ISLAND] Rebuilding '$system_name' with only the largest connected subnetwork ($(length(main_bus_nums)) physical buses)..."
             # Audit and log every 1-bus pocket and secondary island (plus its MW gen/load) before pruning
             log_pruned_islands_audit(region_sys, sorted_sub_nws[2:end])
 
@@ -252,7 +285,7 @@ function extract_region_system(
                 fallback_bus_ext_reserves = fallback_bus_ext_reserves,
                 system_name = system_name,
                 log_file = nothing,
-                _allowed_bus_numbers = allowed_bus_set,
+                _allowed_bus_numbers = main_bus_nums,
                 _warn_tielines = false,
             )
         end
