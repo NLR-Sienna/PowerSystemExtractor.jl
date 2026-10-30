@@ -87,3 +87,4 @@ When `log_file` is specified, all boundary cuts, topological warnings, and hydro
 
 - [ ] **Forecast Time-Series Migration**: Extend Step 11 time-series migration beyond `PSY.StaticTimeSeries` to support standalone `PSY.Forecast` subtypes (`Deterministic`, `Probabilistic`, `Scenarios`), and automatically re-apply `transform_single_time_series!` when `DeterministicSingleTimeSeries` views are detected on `main_sys`.
 - [ ] **`ConstantReserveGroup` Migration**: Add a second pass in `migrate_regional_services!` to remap `contributing_services` for `PSY.ConstantReserveGroup` meta-services.
+- [ ] **`SupplementalAttribute` Migration**: Add a routine in cloning to remap `SupplementalAttirbute` and corresponding time series.
