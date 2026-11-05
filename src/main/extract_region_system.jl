@@ -15,6 +15,7 @@
         fallback_bus_ext_reserves::Bool = false,
         system_name::String = join(area_names, "_") * "_Carved_System",
         log_file::Union{Nothing, String} = nothing,
+        strict_contingencies::Bool = false,
     ) -> PSY.System
 
 Extracts a standalone regional `PSY.System` from `main_sys` without mutating `main_sys`.
@@ -31,6 +32,7 @@ function extract_region_system(
     fallback_bus_ext_reserves::Bool = false,
     system_name::String = join(area_names, "_") * "_Carved_System",
     log_file::Union{Nothing, String} = nothing,
+    strict_contingencies::Bool = false,
     _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
     _warn_tielines::Bool = true,
 )
@@ -49,6 +51,7 @@ function extract_region_system(
                 fallback_bus_ext_reserves = fallback_bus_ext_reserves,
                 system_name = system_name,
                 log_file = nothing,
+                strict_contingencies = strict_contingencies,
                 _allowed_bus_numbers = _allowed_bus_numbers,
                 _warn_tielines = _warn_tielines,
             )
@@ -244,6 +247,7 @@ function extract_region_system(
                     fallback_bus_ext_reserves = fallback_bus_ext_reserves,
                     system_name = system_name,
                     log_file = nothing,
+                    strict_contingencies = strict_contingencies,
                     _warn_tielines = false,
                 )
             end
@@ -285,6 +289,7 @@ function extract_region_system(
                 fallback_bus_ext_reserves = fallback_bus_ext_reserves,
                 system_name = system_name,
                 log_file = nothing,
+                strict_contingencies = strict_contingencies,
                 _allowed_bus_numbers = main_bus_nums,
                 _warn_tielines = false,
             )
@@ -305,6 +310,9 @@ function extract_region_system(
         )
     end
 
+    # Migrate SupplementalAttributes (GeographicInfo, Outages/Contingencies, PowerPlants, etc.)
+    supp_attr_count, supp_ts_count = migrate_supplemental_attributes!(region_sys, main_sys)
+    
     # Copy StaticTimeSeries for Surviving Injections, HydroReservoirs, and Migrated Services
     ts_count = 0
     for orig_dev in vcat(region_injections, region_reservoirs)
@@ -321,7 +329,8 @@ function extract_region_system(
             end
         end
     end
-
+    
+    # Service time series
     for (orig_srv, new_srv) in migrated_services
         if PSY.has_time_series(orig_srv)
             for key in PSY.get_time_series_keys(orig_srv)
@@ -333,6 +342,8 @@ function extract_region_system(
             end
         end
     end
+
+    ts_count += supp_ts_count # Add supplemental attribute time series count
 
     retained_star_count = count(
         b -> PSY.get_number(b) in star_bus_nums,
@@ -349,6 +360,7 @@ function extract_region_system(
       - Hydro Reservoirs:   $(length(PSY.get_components(PSY.HydroReservoir, region_sys)))
       - Services/Reserves:  $(length(migrated_services))
       - Time Series Copied: $ts_count
+      - Supplemental Attrs: $supp_attr_count
     """
 
     return region_sys
@@ -372,6 +384,7 @@ end
         fallback_bus_ext_reserves::Bool = false,
         system_name::String = join(area_names, "_") * "_Carved_System",
         log_file::Union{Nothing, String} = nothing,
+        strict_contingencies::Bool = false,
     ) -> PSY.System
 
 Extracts a standalone regional `PSY.System` from `main_sys` without mutating `main_sys`.
@@ -388,6 +401,7 @@ function extract_region_system(
     fallback_bus_ext_reserves::Bool = false,
     system_name::String = join(area_names, "_") * "_Carved_System",
     log_file::Union{Nothing, String} = nothing,
+    strict_contingencies::Bool = false,
     _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
     _warn_tielines::Bool = true,
 )
@@ -411,6 +425,7 @@ function extract_region_system(
         fallback_bus_ext_reserves = fallback_bus_ext_reserves,
         system_name = system_name,
         log_file = nothing,
+        strict_contingencies = strict_contingencies,
         _allowed_bus_numbers = _allowed_bus_numbers,
         _warn_tielines = _warn_tielines,
     )

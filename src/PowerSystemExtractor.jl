@@ -15,9 +15,13 @@ include("util/cloning.jl")
 include("util/hydro_checks.jl")
 include("util/logging.jl")
 include("util/migrate_services.jl")
+include("util/migrate_supplemental_attributes.jl")
 include("util/pnm_helpers.jl")
 
 # main
 include("main/extract_region_system.jl")
+
+# Exports
+export extract_region_system
 
 end

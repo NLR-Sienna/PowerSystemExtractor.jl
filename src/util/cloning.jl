@@ -112,3 +112,22 @@ function clone_service(srv::PSY.Service, region_sys::PSY.System)
         end
     end
 end
+"""
+    _clone_supplemental_attribute(attr::T) -> T
+
+Clones `attr` via `deepcopy` while temporarily detaching `shared_system_references`
+from the attribute itself so `deepcopy` only copies the attribute struct.
+"""
+function _clone_supplemental_attribute(attr::T)::T where {T <: IS.SupplementalAttribute}
+    orig_refs = IS.get_shared_system_references(attr)
+
+    IS.set_shared_system_references!(attr, nothing)
+    local new_attr::T
+    try
+        new_attr = deepcopy(attr)
+    finally
+        IS.set_shared_system_references!(attr, orig_refs)
+    end
+
+    return new_attr
+end
