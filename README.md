@@ -4,14 +4,22 @@
 
 ---
 
-## Installation
+## Key Features
 
-To install the package locally during development:
+* **Topological Connectivity & Island Management:** Leverages `PowerNetworkMatrices.jl` (`PNM`) to validate subnetwork connectivity, automatically accounting for zero-impedance station jumpers and pruning isolated secondary islands.
+* **1-Hop Bridge Auto-Healing:** Automatically identifies regional loops extending into neighbor substations and pulls in necessary external boundary bridge buses.
+* **3-Winding Transformer Support:** Properly tracks and retains internal star buses and arcs across transformations.
+* **Supplemental Attribute Migration:** Audits, clones, and migrates `SupplementalAttribute` records (such as `GeographicInfo`, `EmissionsData`, `ImpedanceCorrectionData`, and forced outage models like `GeometricDistributionForcedOutage`) along with attached time series.
+* **Hydro & Services Integration:** Re-links hydro reservoir/turbine hierarchies and migrates regional `Service` and reserve definitions.
+* **Structured Audit Logging:** Tees diagnostic logs to both the console and file streams via `InfrastructureSystems.MultiLogger`.
+
+---
+
+## Installation
 
 ```julia
 using Pkg
-Pkg.develop(path = "/path/to/PowerSystemExtractor.jl")
-
+Pkg.add(url="https://github.com/NLR-Sienna/PowerSystemExtractor.jl")
 ```
 
 ---
@@ -70,21 +78,28 @@ PSY.to_json(region_sys, output_path; pretty = true, force = true)
 | `fallback_bus_ext_reserves` | `false` | Fallback matching for legacy systems where `Reserve` objects are unattached in the master system and matched via `bus.ext["region"]`. |
 | `system_name` | `"<Areas>_Carved_System"` | Name assigned to the newly created regional `PSY.System`. |
 | `log_file` | `nothing` | Optional file path (`String`) to tee all console logs, warnings, and diagnostics using `InfrastructureSystems.MultiLogger`. |
+| `strict_contingencies` | `false` | Controls whether boundary-spanning multi-element contingencies are dropped entirely (`true`) or trimmed to in-region components (`false`). |
+| `warn_tielines` | `true` | Controls whether cut boundary tie-lines trigger console warnings (`Bool`) during initial classification. |
+
 
 ---
 
-## Greppable Diagnostic Tags
+## Greppable Audit & Diagnostic Tags
 
-When `log_file` is specified, all boundary cuts, topological warnings, and hydro reservoir audits are tagged for easy `grep` inspection:
+- **`[CUT_TIELINE]`**: Lists every severed branch across the regional boundary.
+- **`[BRIDGE_CANDIDATE]`**: Identifies external substations touching $\ge 2$ cut tie-lines (potential 1-hop loop/bridge candidates).
+- **`[BRIDGE_AUTO_HEAL]`**: Logs when 1-hop external bridge buses are automatically pulled in to reconnect split regional corridors.
+- **`[ISLAND]`**: Details secondary disconnected subnetworks and the specific cut tie-lines touching them.
+- **`[PRUNED_ISLAND]`**: Audits all buses, branches, and active power injections/withdrawals (MW) dropped when secondary islands are pruned.
+- **`[HYDRO_TOPOLOGY]`**: Audits `HydroReservoir` and `HydroUnit` memberships, warning on split turbine memberships and automatically dropping orphaned reservoirs with 0 retained turbines.
+- **`[SUPPLEMENTAL_ATTRIBUTE_TOPOLOGY]`**: Summary grouping log detailing boundary-spanning `SupplementalAttribute` records that were trimmed or dropped during migration.
+- **`[SPLIT_SUPPLEMENTAL_ATTRIBUTE]`**: Logs `SupplementalAttribute` instances (such as multi-unit `PowerPlant` aggregators or shared outage models) that span the regional boundary and were trimmed to include only surviving in-region components.
+- **`[DROPPED_SPLIT_CONTINGENCY]`**: Logs boundary-spanning multi-element `Contingency` definitions that were dropped entirely when `strict_contingencies = true`.
 
-* **`[CUT_TIELINE]`**: Lists every severed branch across the regional boundary.
-* **`[BRIDGE_CANDIDATE]`**: Identifies external substations touching $\ge 2$ cut tie-lines (potential 1-hop loop/bridge candidates).
-* **`[BRIDGE_AUTO_HEAL]`**: Logs when 1-hop external bridge buses are automatically pulled in to reconnect split regional corridors.
-* **`[ISLAND]`**: Details secondary disconnected subnetworks and the specific cut tie-lines touching them.
-* **`[HYDRO_TOPOLOGY]`**: Audits `HydroReservoir` and `HydroUnit` memberships, warning on split turbine memberships and automatically dropping orphaned reservoirs with 0 retained turbines.
+---
 
 ## Roadmap & TODOs
 
 - [ ] **Forecast Time-Series Migration**: Extend Step 11 time-series migration beyond `PSY.StaticTimeSeries` to support standalone `PSY.Forecast` subtypes (`Deterministic`, `Probabilistic`, `Scenarios`), and automatically re-apply `transform_single_time_series!` when `DeterministicSingleTimeSeries` views are detected on `main_sys`.
 - [ ] **`ConstantReserveGroup` Migration**: Add a second pass in `migrate_regional_services!` to remap `contributing_services` for `PSY.ConstantReserveGroup` meta-services.
-- [ ] **`SupplementalAttribute` Migration**: Add a routine in cloning to remap `SupplementalAttirbute` and corresponding time series.
+- [DONE] **`SupplementalAttribute` Migration**: Add a routine in cloning to remap `SupplementalAttirbute` and corresponding time series.

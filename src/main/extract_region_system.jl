@@ -16,6 +16,7 @@
         system_name::String = join(area_names, "_") * "_Carved_System",
         log_file::Union{Nothing, String} = nothing,
         strict_contingencies::Bool = false,
+        warn_tielines::Bool = true,  
     ) -> PSY.System
 
 Extracts a standalone regional `PSY.System` from `main_sys` without mutating `main_sys`.
@@ -33,8 +34,9 @@ function extract_region_system(
     system_name::String = join(area_names, "_") * "_Carved_System",
     log_file::Union{Nothing, String} = nothing,
     strict_contingencies::Bool = false,
+    warn_tielines::Bool = true,
+    _is_recursive::Bool = false,
     _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
-    _warn_tielines::Bool = true,
 )
     # Open MultiLogger once on top-level call; recursive rebuilds inherit the logger
     if !isnothing(log_file)
@@ -52,8 +54,9 @@ function extract_region_system(
                 system_name = system_name,
                 log_file = nothing,
                 strict_contingencies = strict_contingencies,
+                warn_tielines = warn_tielines,
+                _is_recursive = _is_recursive,
                 _allowed_bus_numbers = _allowed_bus_numbers,
-                _warn_tielines = _warn_tielines,
             )
         end
     end
@@ -82,7 +85,7 @@ function extract_region_system(
 
     # Classify Intra-Regional Branches vs. Cut Tie-Lines & Warn User
     region_branches, cut_tielines = classify_regional_branches(main_sys, physical_bus_set)
-    _warn_tielines && warn_cut_tielines(cut_tielines, physical_bus_set)
+    (!_is_recursive && warn_tielines) && warn_tielines(cut_tielines, physical_bus_set)
 
     # Add Internal Star Buses for Retained 3W Transformers
     star_buses = PSY.get_star_bus.(filter(x -> x isa PSY.ThreeWindingTransformer, region_branches))
@@ -248,7 +251,8 @@ function extract_region_system(
                     system_name = system_name,
                     log_file = nothing,
                     strict_contingencies = strict_contingencies,
-                    _warn_tielines = false,
+                    warn_tielines = warn_tielines,
+                    _is_recursive = true
                 )
             end
         end
@@ -290,8 +294,9 @@ function extract_region_system(
                 system_name = system_name,
                 log_file = nothing,
                 strict_contingencies = strict_contingencies,
+                warn_tielines = warn_tielines,
                 _allowed_bus_numbers = main_bus_nums,
-                _warn_tielines = false,
+                _is_recursive = true
             )
         end
     else
@@ -402,8 +407,9 @@ function extract_region_system(
     system_name::String = join(area_names, "_") * "_Carved_System",
     log_file::Union{Nothing, String} = nothing,
     strict_contingencies::Bool = false,
+    warn_tielines::Bool = true,
+    _is_recursive::Bool = false,
     _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
-    _warn_tielines::Bool = true,
 )
     @warn "Loading system from '$sys_loc' for regional extraction with run checks disabled. Ensure this is a valid PSY 5 System file."
     main_sys = PSY.System(
@@ -425,9 +431,10 @@ function extract_region_system(
         fallback_bus_ext_reserves = fallback_bus_ext_reserves,
         system_name = system_name,
         log_file = nothing,
+        warn_tielines = warn_tielines,
         strict_contingencies = strict_contingencies,
+        _is_recursive = _is_recursive,
         _allowed_bus_numbers = _allowed_bus_numbers,
-        _warn_tielines = _warn_tielines,
     )
        
 end
