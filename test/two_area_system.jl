@@ -36,6 +36,12 @@ function build_synthetic_two_area_system()
 
     PSY.add_components!(sys, [b101, b102, b103, b_star, b104, b105, b106, b201, b202])
 
+    # Attach a GeographicInfo supplemental attribute
+    geo_attr = IS.GeographicInfo(
+        geo_json = Dict("type" => "Point", "coordinates" => [-86.7816, 36.1627]),
+    )
+    PSY.add_supplemental_attribute!(sys, b101, geo_attr)
+
     # --- 3-Winding Transformer connecting b101, b102, b103 via b_star ---
     arc_p = PSY.Arc(b101, b_star)
     arc_s = PSY.Arc(b102, b_star)
@@ -129,6 +135,14 @@ function build_synthetic_two_area_system()
         prime_mover_type = PSY.PrimeMovers.ST,
         fuel = PSY.ThermalFuels.COAL,
     )
+
+    # Add a GeometricDistributionForcedOutage supplemental attribute to Gen_A1
+    outage_attr = PSY.GeometricDistributionForcedOutage(;
+        mean_time_to_recovery = 24.0,
+        outage_transition_probability = 0.01,
+    )
+    PSY.add_supplemental_attribute!(sys, gen, outage_attr)
+
     gen_b1 = PSY.ThermalStandard(
         name = "Gen_B1",
         available = true,

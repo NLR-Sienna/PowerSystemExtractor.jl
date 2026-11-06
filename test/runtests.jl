@@ -78,6 +78,35 @@ reloaded_sys = PSY.System(output_path; runchecks = false);
     @test occursin("Load StandardLoad 'StdLoad_A6' @ bus #106 (avail, max_p = 30.0 MW)", log_text)
 end
 
+@testset "Supplemental Attributes Migration & Cloning" begin
+    
+    carved_bus = PSY.get_component(PSY.ACBus, region_sys, "b101")
+    @test carved_bus !== nothing
+    @test PSY.has_supplemental_attributes(carved_bus)
+    
+    geo_attrs = PSY.get_supplemental_attributes(IS.GeographicInfo, region_sys)
+    @test length(geo_attrs) == 1
+    carved_geo = first(geo_attrs)
+    @test carved_geo.geo_json["coordinates"] == [-86.7816, 36.1627]
+
+    # 2. Verify GeometricDistributionForcedOutage migrated to the carved generator
+    carved_gen = PSY.get_component(PSY.ThermalStandard, region_sys, "Gen_A1")
+    @test carved_gen !== nothing
+    @test PSY.has_supplemental_attributes(carved_gen)
+
+    outage_attrs = PSY.get_supplemental_attributes(PSY.GeometricDistributionForcedOutage, region_sys)
+    @test length(outage_attrs) == 1
+    carved_outage = first(outage_attrs)
+    @test carved_outage.mttr == 24.0
+    @test carved_outage.fout == 0.01
+
+    # 3. Verify main_sys was NOT mutated (shared_system_references untouched)
+    orig_bus = PSY.get_component(PSY.ACBus, main_sys, "BusA")
+    orig_geo = first(PSY.get_supplemental_attributes(IS.GeographicInfo, main_sys))
+    @test IS.get_shared_system_references(IS.get_internal(orig_geo)) !== nothing
+    @test IS.get_shared_system_references(IS.get_internal(carved_geo)) !== nothing
+    @test IS.get_uuid(orig_geo) == IS.get_uuid(carved_geo) # UUID preserved
+end
 
 @testset "Extracted System Integrity ($(PSY.get_name(region_sys)))" begin
 
@@ -138,7 +167,6 @@ end
 end
 
 rm(TEST_TMPDIR; recursive = true, force = true)
-
 
 
 
