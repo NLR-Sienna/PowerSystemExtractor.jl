@@ -10,7 +10,7 @@ function migrate_regional_services!(
 )
     srv_to_new_devices = Dict{PSY.Service, Vector{PSY.Device}}()
 
-    for orig_dev in vcat(orig_injections, orig_branches)
+    for orig_dev in Iterators.flatten((orig_injections, orig_branches))
         !hasproperty(orig_dev, :services) && continue
         dev_type = typeof(orig_dev)
         dev_name = PSY.get_name(orig_dev)

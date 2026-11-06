@@ -197,11 +197,14 @@ function extract_region_system(
     filter!(kv -> !isempty(kv[2]), sub_nws)
 
     # Ensure any completely isolated physical bus (0 internal branches) is accounted for
-    accounted_bus_nums = isempty(sub_nws) ? Set{Int}() : union(values(sub_nws)...)
+    accounted_bus_nums = Set{Int}()
+    for bus_nums in values(sub_nws)
+        union!(accounted_bus_nums, bus_nums)
+    end
     for b in cloned_physical_buses
         b_num = PSY.get_number(b)
         if !(b_num in accounted_bus_nums)
-            sub_nws[b_num] = Set([b_num])
+            sub_nws[b_num] = Set(b_num)
         end
     end
 
@@ -241,16 +244,29 @@ function extract_region_system(
         end
 
         # Log Disconnected Islands & Cross-Referenced Cut Tie-Lines
-        island_details = String[]
-        for (idx, (rep_num, bus_nums)) in enumerate(sorted_sub_nws[2:end])
-            island_tielines = filter(cut_tielines) do br
-                any(b -> PSY.get_number(b) in bus_nums, get_physical_buses(br))
+        bus_num_to_tielines = Dict{Int, Vector{String}}()
+        for br in cut_tielines
+            br_name = PSY.get_name(br)
+            for b in get_physical_buses(br)
+                if b in physical_bus_set
+                    push!(get!(bus_num_to_tielines, PSY.get_number(b), String[]), br_name)
+                end
             end
-            tl_names = isempty(island_tielines) ? "None" : join(PSY.get_name.(island_tielines), ", ")
+        end
+
+        island_details = String[]
+        for (idx, (rep_num, bus_nums)) in enumerate(@view sorted_sub_nws[2:end])
+            tl_set = Set{String}()
+            for b_num in bus_nums
+                if haskey(bus_num_to_tielines, b_num)
+                    union!(tl_set, bus_num_to_tielines[b_num])
+                end
+            end
+            tl_names = isempty(tl_set) ? "None" : join(sort!(collect(tl_set)), ", ")
             push!(
                 island_details,
                 "  • [ISLAND] Island #$(idx + 1) ($(length(bus_nums)) physical bus(es), rep bus #$rep_num): " *
-                "bus_numbers=$(sort(collect(bus_nums))) | Cut tie-lines touching this island: [$tl_names]",
+                "bus_numbers=$(sort!(collect(bus_nums))) | Cut tie-lines touching this island: [$tl_names]",
             )
         end
 

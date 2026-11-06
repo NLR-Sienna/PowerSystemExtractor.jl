@@ -93,8 +93,8 @@ function warn_cut_tielines(cut_tielines::Vector{PSY.Branch}, bus_set::Set{PSY.AC
 
     for br in sort(cut_tielines, by = PSY.get_name)
         p_buses = get_physical_buses(br)
-        in_buses = filter(b -> b in bus_set, collect(p_buses))
-        out_buses = filter(b -> !(b in bus_set), collect(p_buses))
+        in_buses = [b for b in p_buses if b in bus_set]
+        out_buses = [b for b in p_buses if !(b in bus_set)]
 
         for ob in out_buses
             push!(get!(ext_bus_to_tielines, ob, PSY.Branch[]), br)

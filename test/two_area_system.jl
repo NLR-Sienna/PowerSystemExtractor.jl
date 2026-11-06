@@ -4,7 +4,8 @@ import Dates
 import TimeSeries
 
 # ==============================================================================
-# Synthetic 2-Area Test System Builder (3W Tx, 1-Hop Bridge, HydroReservoir)
+# Synthetic 2-Area Test System Builder 
+# (3W Tx, 1-Hop Bridge, HydroReservoir, 1-Bus Pocket, etc.)
 # ==============================================================================
 
 function build_synthetic_two_area_system()
@@ -117,6 +118,17 @@ function build_synthetic_two_area_system()
     # External line inside Area B (201 <-> 202)
     mk_line("Line_B1_B2", b201, b202)
 
+    # --- AreaInterchange between Area_A and Area_B (backed by Tie_A2_B1 and Tie_B1_A4) ---
+    ai_ab = PSY.AreaInterchange(
+        name = "Interchange_A_B",
+        available = true,
+        active_power_flow = 0.0,
+        from_area = area_a,
+        to_area = area_b,
+        flow_limits = (from_to = 2.0, to_from = 2.0),
+    )
+    PSY.add_component!(sys, ai_ab)
+
     # --- Generators & Loads ---
     gen_a1 = PSY.ThermalStandard(
         name = "Gen_A1",
@@ -135,13 +147,6 @@ function build_synthetic_two_area_system()
         prime_mover_type = PSY.PrimeMovers.ST,
         fuel = PSY.ThermalFuels.COAL,
     )
-
-    # Add a GeometricDistributionForcedOutage supplemental attribute to Gen_A1
-    outage_attr = PSY.GeometricDistributionForcedOutage(;
-        mean_time_to_recovery = 24.0,
-        outage_transition_probability = 0.01,
-    )
-    PSY.add_supplemental_attribute!(sys, gen_a1, outage_attr)
 
     gen_b1 = PSY.ThermalStandard(
         name = "Gen_B1",
@@ -198,6 +203,13 @@ function build_synthetic_two_area_system()
         max_current_reactive_power = 0.01,
     )
     PSY.add_components!(sys, [gen_a1, gen_b1, load_a3,shunt_a6, std_load_a6])
+
+    # Add a GeometricDistributionForcedOutage supplemental attribute to Gen_A1
+    outage_attr = PSY.GeometricDistributionForcedOutage(;
+        mean_time_to_recovery = 24.0,
+        outage_transition_probability = 0.01,
+    )
+    PSY.add_supplemental_attribute!(sys, gen_a1, outage_attr)
 
     # --- HydroTurbines & HydroReservoirs ---
     mk_turbine(name, bus) = PSY.HydroTurbine(

@@ -17,7 +17,7 @@ function collect_and_audit_hydro_reservoirs(
 
     # Initial candidate selection: any reservoir with a turbine on a regional bus or in ext["plants"]
     candidate_reservoirs = filter(all_main_reservoirs) do res
-        for t in vcat(PSY.get_upstream_turbines(res), PSY.get_downstream_turbines(res))
+        for t in Iterators.flatten((PSY.get_upstream_turbines(res), PSY.get_downstream_turbines(res)))
             if (t in retained_inj_set) || (hasproperty(t, :bus) && PSY.get_bus(t) in all_region_bus_set)
                 return true
             end
@@ -69,7 +69,7 @@ function collect_and_audit_hydro_reservoirs(
             # Orphaned reservoir: 0 retained upstream or downstream turbines in the region
             orig_t_info = [
                 "$(PSY.get_name(t)) ($(nameof(typeof(t))) @ $(hasproperty(t, :bus) ? format_bus_info(PSY.get_bus(t)) : "no bus"))"
-                for t in vcat(up_t, dn_t)
+                for t in Iterators.flatten((up_t, dn_t)) 
             ]
             orig_str = isempty(orig_t_info) ? "none in main_sys" : join(orig_t_info, ", ")
             push!(
@@ -123,7 +123,7 @@ function collect_and_audit_hydro_reservoirs(
     #  but is now missing a reservoir (or missing its head/tail partner for pumped hydro)
     main_turbine_to_res = Dict{PSY.StaticInjection, Vector{PSY.HydroReservoir}}()
     for res in all_main_reservoirs
-        for t in vcat(PSY.get_upstream_turbines(res), PSY.get_downstream_turbines(res))
+        for t in Iterators.flatten((PSY.get_upstream_turbines(res), PSY.get_downstream_turbines(res)))
             push!(get!(main_turbine_to_res, t, PSY.HydroReservoir[]), res)
         end
     end

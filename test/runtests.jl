@@ -103,9 +103,64 @@ end
     # 3. Verify main_sys was NOT mutated (shared_system_references untouched)
     orig_bus = PSY.get_component(PSY.ACBus, main_sys, "BusA")
     orig_geo = first(PSY.get_supplemental_attributes(IS.GeographicInfo, main_sys))
-    @test IS.get_shared_system_references(IS.get_internal(orig_geo)) !== nothing
-    @test IS.get_shared_system_references(IS.get_internal(carved_geo)) !== nothing
+    @test IS.get_shared_system_references(orig_geo) !== nothing
+    @test IS.get_shared_system_references(carved_geo) !== nothing
     @test IS.get_uuid(orig_geo) == IS.get_uuid(carved_geo) # UUID preserved
+end
+
+@testset "AreaInterchange Filtering (Connected vs. Orphaned)" begin
+   
+    @test !isnothing(PSY.get_component(PSY.AreaInterchange, region_sys, "Interchange_A_B"))
+
+    sys_ai_test = build_synthetic_two_area_system()
+    area_b_test = PSY.get_component(PSY.Area, sys_ai_test, "Area_B")
+    area_c_test = PSY.Area("Area_C", 10.0, 0.0, 0.0)
+    PSY.add_component!(sys_ai_test, area_c_test)
+
+    # Reassign Bus_A3 (connected only to Star_A_3W in Area_A) to Area_C
+    b103_test = PSY.get_component(PSY.ACBus, sys_ai_test, "Bus_A3")
+    PSY.set_area!(b103_test, area_c_test)
+
+    # Valid AreaInterchange (Area_A <-> Area_C, connected via Tx3W_AreaA)
+    ai_ac_valid = PSY.AreaInterchange(
+        name = "Interchange_A_C_Valid",
+        available = true,
+        active_power_flow = 0.0,
+        from_area = PSY.get_component(PSY.Area, sys_ai_test, "Area_A"),
+        to_area = area_c_test,
+        flow_limits = (from_to = 1.5, to_from = 1.5),
+    )
+    # Orphaned AreaInterchange (Area_B <-> Area_C: both areas in region_sys, 0 direct ACBranches)
+    ai_bc_orphan = PSY.AreaInterchange(
+        name = "Interchange_B_C_Orphan",
+        available = true,
+        active_power_flow = 0.0,
+        from_area = area_b_test,
+        to_area = area_c_test,
+        flow_limits = (from_to = 1.0, to_from = 1.0),
+    )
+    PSY.add_components!(sys_ai_test, [ai_ac_valid, ai_bc_orphan])
+
+    ai_log_path = joinpath(TEST_TMPDIR, "ai_extraction.log")
+    carved_ai_sys = PowerSystemExtractor.extract_region_system(
+        sys_ai_test;
+        area_names = ["Area_A", "Area_C"],
+        keep_only_largest_island = true,
+        auto_include_1hop_bridges = true,
+        log_file = ai_log_path,
+    )
+
+    # Area_A, Area_B (via bridge), and Area_C are all in carved_ai_sys
+    @test length(PSY.get_components(PSY.Area, carved_ai_sys)) == 3
+    # Area_A <-> Area_B and Area_A <-> Area_C have physical ACBranches (including 3WT!) -> Retained
+    @test !isnothing(PSY.get_component(PSY.AreaInterchange, carved_ai_sys, "Interchange_A_B"))
+    @test !isnothing(PSY.get_component(PSY.AreaInterchange, carved_ai_sys, "Interchange_A_C_Valid"))
+    # Area_B <-> Area_C has 0 connecting ACBranches -> Dropped!
+    @test isnothing(PSY.get_component(PSY.AreaInterchange, carved_ai_sys, "Interchange_B_C_Orphan"))
+
+    ai_log_text = read(ai_log_path, String)
+    @test occursin("[DROPPED_AREA_INTERCHANGE]", ai_log_text)
+    @test occursin("Interchange_B_C_Orphan", ai_log_text)
 end
 
 @testset "Extracted System Integrity ($(PSY.get_name(region_sys)))" begin
