@@ -178,3 +178,78 @@ function find_pnm_bridge_buses(
 
     return collect(intersect(touches_main, touches_sec))
 end
+
+"""
+Returns the Set of sorted `(area_name_1, area_name_2)` pairs that are physically connected
+by at least one available branch in `region_branches`.
+"""
+function get_connected_area_pairs(
+    region_branches::Vector{PSY.Branch};
+    only_available::Bool = true,
+)
+    connected_pairs = Set{Tuple{String, String}}()
+
+    for br in region_branches
+        only_available && !PSY.get_available(br) && continue
+        p_buses = get_physical_buses(br)
+        n = length(p_buses)
+        for i in 1:(n - 1), j in (i + 1):n
+            a1 = PSY.get_area(p_buses[i])
+            a2 = PSY.get_area(p_buses[j])
+            if !isnothing(a1) && !isnothing(a2)
+                n1, n2 = PSY.get_name(a1), PSY.get_name(a2)
+                if n1 != n2
+                    push!(connected_pairs, minmax(n1, n2))
+                end
+            end
+        end
+    end
+
+    return connected_pairs
+end
+
+"""
+Collects and audits `AreaInterchange` components from `main_sys`.
+Retains an `AreaInterchange` ONLY if both `from_area` and `to_area` are in `region_area_set`
+AND at least one available `ACBranch` in `region_branches` physically connects the two areas.
+"""
+function collect_and_audit_area_interchanges(
+    main_sys::PSY.System,
+    region_area_set::Set{PSY.Area},
+    region_branches::Vector{PSY.Branch},
+)
+    length(region_area_set) < 2 && return PSY.AreaInterchange[]
+
+    connected_pairs = get_connected_area_pairs(region_branches; only_available = true)
+    valid_interchanges = PSY.AreaInterchange[]
+    dropped_logs = String[]
+
+    for ai in PSY.get_components(PSY.AreaInterchange, main_sys)
+        from_a = PSY.get_from_area(ai)
+        to_a   = PSY.get_to_area(ai)
+        (isnothing(from_a) || isnothing(to_a)) && continue
+
+        # Skip silently if either Area is not present in the extracted region
+        if !(from_a in region_area_set) || !(to_a in region_area_set)
+            continue
+        end
+
+        pair = minmax(PSY.get_name(from_a), PSY.get_name(to_a))
+        if !(pair in connected_pairs)
+            push!(
+                dropped_logs,
+                "  • [DROPPED_AREA_INTERCHANGE] AreaInterchange '$(PSY.get_name(ai))' ($(pair[1]) <-> $(pair[2])) dropped: both Areas exist in region, but 0 available ACBranches connect them.",
+            )
+            continue
+        end
+
+        push!(valid_interchanges, ai)
+    end
+
+    if !isempty(dropped_logs)
+        @warn "[AREA_INTERCHANGE_TOPOLOGY] Dropped $(length(dropped_logs)) AreaInterchange(s) lacking physical ACBranch connections:\n" *
+              join(dropped_logs, "\n")
+    end
+
+    return valid_interchanges
+end

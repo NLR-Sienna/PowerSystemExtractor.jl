@@ -85,7 +85,7 @@ function extract_region_system(
 
     # Classify Intra-Regional Branches vs. Cut Tie-Lines & Warn User
     region_branches, cut_tielines = classify_regional_branches(main_sys, physical_bus_set)
-    (!_is_recursive && warn_tielines) && warn_tielines(cut_tielines, physical_bus_set)
+    (!_is_recursive && warn_tielines) && warn_cut_tielines(cut_tielines, physical_bus_set)
 
     # Add Internal Star Buses for Retained 3W Transformers
     star_buses = PSY.get_star_bus.(filter(x -> x isa PSY.ThreeWindingTransformer, region_branches))
@@ -128,12 +128,10 @@ function extract_region_system(
     region_area_set = Set(region_areas)
     region_loadzones = unique(filter(!isnothing, PSY.get_load_zone.(all_region_buses)))
 
-    region_interchanges = collect(
-        PSY.get_components(
-            ai -> (PSY.get_from_area(ai) in region_area_set) && (PSY.get_to_area(ai) in region_area_set),
-            PSY.AreaInterchange,
-            main_sys,
-        )
+    region_interchanges = collect_and_audit_area_interchanges(
+        main_sys,
+        region_area_set,
+        region_branches,
     )
 
     # Clone Components Without Mutating main_sys
@@ -190,21 +188,6 @@ function extract_region_system(
             end
         end
         union!(bus_nums, merged_buses)
-    end
-
-    # Strip 3W dummy star bus numbers so island sizes reflect physical buses
-    for (_, bus_nums) in sub_nws
-        setdiff!(bus_nums, star_bus_nums)
-    end
-    filter!(kv -> !isempty(kv[2]), sub_nws)
-
-    # Ensure any completely isolated physical bus (0 internal branches) is accounted for
-    accounted_bus_nums = isempty(sub_nws) ? Set{Int}() : union(values(sub_nws)...)
-    for b in cloned_physical_buses
-        b_num = PSY.get_number(b)
-        if !(b_num in accounted_bus_nums)
-            sub_nws[b_num] = Set([b_num])
-        end
     end
 
     # Strip 3W dummy star bus numbers so island sizes reflect physical buses
@@ -316,11 +299,11 @@ function extract_region_system(
     end
 
     # Migrate SupplementalAttributes (GeographicInfo, Outages/Contingencies, PowerPlants, etc.)
-    supp_attr_count, supp_ts_count = migrate_supplemental_attributes!(region_sys, main_sys)
+    supp_attr_count, supp_ts_count = migrate_supplemental_attributes!(region_sys, main_sys, strict_contingencies = strict_contingencies)
     
     # Copy StaticTimeSeries for Surviving Injections, HydroReservoirs, and Migrated Services
     ts_count = 0
-    for orig_dev in vcat(region_injections, region_reservoirs)
+    for orig_dev in Iterators.flatten((region_injections, region_reservoirs, region_interchanges))
         dev_type = typeof(orig_dev)
         dev_name = PSY.get_name(orig_dev)
         if PSY.has_component(dev_type, region_sys, dev_name) && PSY.has_time_series(orig_dev)
@@ -430,7 +413,7 @@ function extract_region_system(
         include_services = include_services,
         fallback_bus_ext_reserves = fallback_bus_ext_reserves,
         system_name = system_name,
-        log_file = nothing,
+        log_file = log_file,
         warn_tielines = warn_tielines,
         strict_contingencies = strict_contingencies,
         _is_recursive = _is_recursive,

@@ -141,7 +141,7 @@ function build_synthetic_two_area_system()
         mean_time_to_recovery = 24.0,
         outage_transition_probability = 0.01,
     )
-    PSY.add_supplemental_attribute!(sys, gen, outage_attr)
+    PSY.add_supplemental_attribute!(sys, gen_a1, outage_attr)
 
     gen_b1 = PSY.ThermalStandard(
         name = "Gen_B1",

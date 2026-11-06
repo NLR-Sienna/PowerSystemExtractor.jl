@@ -80,7 +80,7 @@ end
 
 @testset "Supplemental Attributes Migration & Cloning" begin
     
-    carved_bus = PSY.get_component(PSY.ACBus, region_sys, "b101")
+    carved_bus = PSY.get_component(PSY.ACBus, region_sys, "Bus_A1")
     @test carved_bus !== nothing
     @test PSY.has_supplemental_attributes(carved_bus)
     
@@ -97,8 +97,8 @@ end
     outage_attrs = PSY.get_supplemental_attributes(PSY.GeometricDistributionForcedOutage, region_sys)
     @test length(outage_attrs) == 1
     carved_outage = first(outage_attrs)
-    @test carved_outage.mttr == 24.0
-    @test carved_outage.fout == 0.01
+    @test PSY.get_mean_time_to_recovery(carved_outage) == 24.0
+    @test PSY.get_outage_transition_probability(carved_outage) == 0.01
 
     # 3. Verify main_sys was NOT mutated (shared_system_references untouched)
     orig_bus = PSY.get_component(PSY.ACBus, main_sys, "BusA")
