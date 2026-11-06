@@ -89,8 +89,14 @@ end
 
 """
 Clones a single PSY.Service without mutating `main_sys` or copying its TimeSeriesManager.
+Rebinds `area` for `AGC` services and filters `direction_mapping` for `TransmissionInterface`
+to only include surviving branches in `new_devs`.
 """
-function clone_service(srv::PSY.Service, region_sys::PSY.System)
+function clone_service(
+    srv::PSY.Service,
+    region_sys::PSY.System,
+    new_devs::Vector{PSY.Device} = PSY.Device[],
+)
     orig_ref = IS.get_shared_system_references(srv)
     orig_area = hasproperty(srv, :area) ? PSY.get_area(srv) : nothing
 
@@ -104,6 +110,10 @@ function clone_service(srv::PSY.Service, region_sys::PSY.System)
             new_area = PSY.get_component(PSY.Area, region_sys, PSY.get_name(orig_area))
             PSY.set_area!(new_srv, new_area)
         end
+        if new_srv isa PSY.TransmissionInterface && !isempty(new_devs)
+            kept_branch_names = Set(PSY.get_name.(new_devs))
+            filter!(kv -> kv[1] in kept_branch_names, PSY.get_direction_mapping(new_srv))
+        end
         return new_srv
     finally
         IS.set_shared_system_references!(srv, orig_ref)
@@ -112,6 +122,7 @@ function clone_service(srv::PSY.Service, region_sys::PSY.System)
         end
     end
 end
+
 """
     _clone_supplemental_attribute(attr::T) -> T
 
