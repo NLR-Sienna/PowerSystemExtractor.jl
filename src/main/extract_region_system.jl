@@ -16,7 +16,8 @@
         system_name::String = join(area_names, "_") * "_Carved_System",
         log_file::Union{Nothing, String} = nothing,
         strict_contingencies::Bool = false,
-        warn_tielines::Bool = true,  
+        warn_tielines::Bool = true,
+        min_service_device_fraction::Float64 = 0.0,
     ) -> PSY.System
 
 Extracts a standalone regional `PSY.System` from `main_sys` without mutating `main_sys`.
@@ -35,6 +36,7 @@ function extract_region_system(
     log_file::Union{Nothing, String} = nothing,
     strict_contingencies::Bool = false,
     warn_tielines::Bool = true,
+    min_service_device_fraction::Float64 = 0.0,
     _is_recursive::Bool = false,
     _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
 )
@@ -55,6 +57,7 @@ function extract_region_system(
                 log_file = nothing,
                 strict_contingencies = strict_contingencies,
                 warn_tielines = warn_tielines,
+                min_service_device_fraction = min_service_device_fraction,
                 _is_recursive = _is_recursive,
                 _allowed_bus_numbers = _allowed_bus_numbers,
             )
@@ -238,6 +241,7 @@ function extract_region_system(
                     log_file = nothing,
                     strict_contingencies = strict_contingencies,
                     warn_tielines = warn_tielines,
+                    min_service_device_fraction = min_service_device_fraction,
                     _is_recursive = true
                 )
             end
@@ -294,6 +298,7 @@ function extract_region_system(
                 log_file = nothing,
                 strict_contingencies = strict_contingencies,
                 warn_tielines = warn_tielines,
+                min_service_device_fraction = min_service_device_fraction,
                 _allowed_bus_numbers = main_bus_nums,
                 _is_recursive = true
             )
@@ -311,6 +316,7 @@ function extract_region_system(
             region_injections,
             region_branches;
             fallback_bus_ext_reserves = fallback_bus_ext_reserves,
+            min_service_device_fraction = min_service_device_fraction,
         )
     end
 
@@ -389,6 +395,8 @@ end
         system_name::String = join(area_names, "_") * "_Carved_System",
         log_file::Union{Nothing, String} = nothing,
         strict_contingencies::Bool = false,
+        warn_tielines::Bool = true,
+        min_service_device_fraction::Float64 = 0.0,
     ) -> PSY.System
 
 Extracts a standalone regional `PSY.System` from `main_sys` without mutating `main_sys`.
@@ -407,6 +415,7 @@ function extract_region_system(
     log_file::Union{Nothing, String} = nothing,
     strict_contingencies::Bool = false,
     warn_tielines::Bool = true,
+    min_service_device_fraction::Float64 = 0.0,
     _is_recursive::Bool = false,
     _allowed_bus_numbers::Union{Nothing, Set{Int}} = nothing,
 )
@@ -432,6 +441,7 @@ function extract_region_system(
         log_file = log_file,
         warn_tielines = warn_tielines,
         strict_contingencies = strict_contingencies,
+        min_service_device_fraction = min_service_device_fraction, 
         _is_recursive = _is_recursive,
         _allowed_bus_numbers = _allowed_bus_numbers,
     )

@@ -1,7 +1,7 @@
 name = "PowerSystemExtractor"
 uuid = "f48b9c72-6a1e-4d39-9b85-3c7f2e10a6d4"
 authors = ["Surya Chandan Dhulipala <suryachandan.dhulipala@nlr.gov>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
