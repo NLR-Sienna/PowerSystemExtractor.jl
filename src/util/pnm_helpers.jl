@@ -127,18 +127,38 @@ function warn_cut_tielines(cut_tielines::Vector{PSY.Branch}, bus_set::Set{PSY.AC
 end
 
 """
-Ensures at least one ACBusTypes.REF or ACBusTypes.SLACK bus exists among `physical_buses`.
+Ensures at least one physical ACBus in the region has bustype == ACBusTypes.REF.
+If no REF bus exists, promotes a single bus to REF—preferring an existing
+ACBusTypes.SLACK bus first, then the highest-voltage PV bus, then any physical bus.
 """
 function ensure_reference_bus!(physical_buses::Vector{PSY.ACBus})
     isempty(physical_buses) && return
-    any(b -> PSY.get_bustype(b) in (PSY.ACBusTypes.REF, PSY.ACBusTypes.SLACK), physical_buses) && return
+    any(b -> PSY.get_bustype(b) == PSY.ACBusTypes.REF, physical_buses) && return
 
+    slack_buses = filter(b -> PSY.get_bustype(b) == PSY.ACBusTypes.SLACK, physical_buses)
     pv_buses = filter(b -> PSY.get_bustype(b) == PSY.ACBusTypes.PV, physical_buses)
-    candidates = isempty(pv_buses) ? physical_buses : pv_buses
-    sort!(candidates, by = b -> something(PSY.get_base_voltage(b), 0.0), rev = true)
+
+    candidates = if !isempty(slack_buses)
+        slack_buses
+    elseif !isempty(pv_buses)
+        pv_buses
+    else
+        physical_buses
+    end
+
+    sort!(
+        candidates,
+        by = b -> (
+            something(PSY.get_base_voltage(b), 0.0),
+            -PSY.get_number(b),
+        ),
+        rev = true,
+    )
     new_ref = first(candidates)
+    orig_type = PSY.get_bustype(new_ref)
     PSY.set_bustype!(new_ref, PSY.ACBusTypes.REF)
-    @warn "[SLACK_BUS] No REF/SLACK bus found in region; promoted physical bus $(format_bus_info(new_ref)) to REF."
+    @warn "[SLACK_BUS] No REF bus found in region; promoted physical bus $(format_bus_info(new_ref)) (was $orig_type) to REF."
+    return
 end
 
 """

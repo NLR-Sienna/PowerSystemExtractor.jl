@@ -84,6 +84,7 @@ function extract_region_system(
         end
     )
     isempty(physical_buses) && error("No buses found matching area_names=$area_names or extra_buses.")
+
     physical_bus_set = Set(physical_buses)
 
     # Classify Intra-Regional Branches vs. Cut Tie-Lines & Warn User
@@ -149,6 +150,7 @@ function extract_region_system(
         region_interchanges,
     )
 
+    # Ensure a reference bus exists on the CLONED physical buses (without mutating main_sys!)
     cloned_physical_buses = filter(b -> !(PSY.get_number(b) in star_bus_nums), cloned.buses)
     ensure_reference_bus!(cloned_physical_buses)
 
@@ -199,11 +201,27 @@ function extract_region_system(
     end
     filter!(kv -> !isempty(kv[2]), sub_nws)
 
+    # Merge any subnetwork island into the main network if they are linked by an available TwoTerminalHVDC line
+    for hvdc in PSY.get_components(PSY.TwoTerminalHVDC, region_sys)
+        PSY.get_available(hvdc) || continue
+        arc = PSY.get_arc(hvdc)
+        from_num = PSY.get_number(PSY.get_from(arc))
+        to_num   = PSY.get_number(PSY.get_to(arc))
+        
+        k_from = findfirst(s -> from_num in s, sub_nws)
+        k_to   = findfirst(s -> to_num in s, sub_nws)
+        
+        if !isnothing(k_from) && !isnothing(k_to) && k_from != k_to
+            union!(sub_nws[k_from], pop!(sub_nws, k_to))
+        end
+    end
+
     # Ensure any completely isolated physical bus (0 internal branches) is accounted for
     accounted_bus_nums = Set{Int}()
     for bus_nums in values(sub_nws)
         union!(accounted_bus_nums, bus_nums)
     end
+
     for b in cloned_physical_buses
         b_num = PSY.get_number(b)
         if !(b_num in accounted_bus_nums)
